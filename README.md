@@ -4,7 +4,7 @@
 
 YT Books turns any YouTube playlist into a "book". Lectures, courses, podcasts: you add the playlist once, and the app keeps your place in every video. There are no recommendations, no comments, no Shorts, no autoplay into unrelated videos and no endless feed. Only the playlist you chose, in order.
 
-> **Download:** [Latest release (APK)](https://github.com/amarhusika/yt-books/releases/latest)
+> **Download:** [Latest release (APK)](https://github.com/amarhusika/yt-books/releases/download/v1.0/ytBookPlayer.apk)
 
 ---
 
