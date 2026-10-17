@@ -8,6 +8,17 @@ YT Books turns any YouTube playlist into a "book". Lectures, courses, podcasts: 
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/yt-books-1.jpg" alt="Library – continue where you left off" width="280">
+  &nbsp;&nbsp;
+  <img src="screenshots/yt-books-2.jpg" alt="Player – video on top, audiobook-style controls below" width="280">
+</p>
+<p align="center"><sub><b>Library</b>: every playlist is a book &nbsp;·&nbsp; <b>Player</b>: video on top, audiobook-style controls below</sub></p>
+
+---
+
 ## Why
 
 YouTube holds a huge amount of knowledge, but the YouTube app is built to keep you watching *something*, not to help you finish *what you started*. Open it to continue lecture 14 of a course and you are one tap away from a recommended video, a Short, or a rabbit hole.
