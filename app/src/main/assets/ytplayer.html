@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #wrap { position: absolute; inset: 0; }
+  #wrap iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+</style>
+</head>
+<body>
+<div id="wrap"></div>
+<script>
+  // Host page for the official YouTube IFrame player. Loaded by the app with
+  // loadDataWithBaseURL("https://<package>/") so YouTube gets a proper origin + referrer.
+  var ORIGIN = '__ORIGIN__';
+  var player = null;
+  var apiReady = false;
+  var playerReady = false;
+  var queued = null;       // load request waiting for the API
+  var wanted = null;       // {start, play, rate} applied in onReady for the first video
+  var controlsOn = 0;      // 1 = YouTube's own controls (gear → quality, captions, skip ad)
+  var quality = 'default'; // suggested quality: default (auto), hd1080, hd720, large, medium, small, tiny
+  var timer = null;
+  var ticks = 0;
+
+  function bridge(name, args) {
+    try { if (window.Android && Android[name]) Android[name].apply(Android, args || []); } catch (e) {}
+  }
+
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  tag.onerror = function () { bridge('onError', [-2]); };
+  document.head.appendChild(tag);
+
+  function onYouTubeIframeAPIReady() {
+    apiReady = true;
+    if (queued) { var q = queued; queued = null; ytLoad(q.id, q.start, q.play, q.rate); }
+  }
+
+  function embedSrc(id, start, play) {
+    var p = {
+      enablejsapi: 1, controls: controlsOn, disablekb: controlsOn ? 0 : 1, fs: 0, rel: 0, playsinline: 1,
+      iv_load_policy: 3, modestbranding: 1, cc_load_policy: 0,
+      autoplay: play ? 1 : 0, start: Math.floor(start),
+      origin: ORIGIN, widget_referrer: ORIGIN
+    };
+    if (quality !== 'default') p.vq = quality;
+    var qs = Object.keys(p).map(function (k) { return k + '=' + encodeURIComponent(p[k]); }).join('&');
+    return 'https://www.youtube.com/embed/' + encodeURIComponent(id) + '?' + qs;
+  }
+
+  function ytLoad(id, start, play, rate) {
+    if (!apiReady) { queued = { id: id, start: start, play: play, rate: rate }; return; }
+    if (!player) {
+      var f = document.createElement('iframe');
+      f.id = 'yt';
+      f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+      f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      f.setAttribute('frameborder', '0');
+      f.src = embedSrc(id, start, play);
+      document.getElementById('wrap').appendChild(f);
+      wanted = { start: start, play: play, rate: rate };
+      player = new YT.Player('yt', {
+        events: {
+          onReady: onReady,
+          onStateChange: function (e) { bridge('onState', [e.data]); if (e.data === 1) sendRates(); tick(); },
+          onError: function (e) { bridge('onError', [e.data]); },
+          onPlaybackRateChange: function () { tick(); }
+        }
+      });
+      return;
+    }
+    if (!playerReady) { wanted = { start: start, play: play, rate: rate }; return; }
+    var req = { videoId: id, startSeconds: start };
+    if (quality !== 'default') req.suggestedQuality = quality;
+    if (play) player.loadVideoById(req);
+    else player.cueVideoById(req);
+    try { player.setPlaybackRate(rate); } catch (e) {}
+  }
+
+  function onReady() {
+    playerReady = true;
+    bridge('onReady', []);
+    var w = wanted; wanted = null;
+    if (w) {
+      try { player.setPlaybackRate(w.rate); } catch (e) {}
+      if (w.start > 0) player.seekTo(w.start, true);
+      applyQuality();
+      if (w.play) player.playVideo();
+    }
+    sendRates();
+    if (!timer) timer = setInterval(tick, 250);
+  }
+
+  function applyQuality() {
+    try { if (quality !== 'default') player.setPlaybackQuality(quality); } catch (e) {}
+  }
+
+  // Rebuilds the iframe at the same spot (needed to switch controls or apply a new quality)
+  function rebuild() {
+    if (!player || !playerReady) return;
+    var id = null, t = 0, playing = false, rate = 1;
+    try {
+      var d = player.getVideoData(); id = d && d.video_id;
+      t = player.getCurrentTime() || 0;
+      playing = player.getPlayerState() === 1 || player.getPlayerState() === 3;
+      rate = player.getPlaybackRate() || 1;
+    } catch (e) {}
+    if (!id) return;
+    try { player.destroy(); } catch (e) {}
+    var wrap = document.getElementById('wrap');
+    while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+    player = null; playerReady = false;
+    ytLoad(id, t, playing, rate);
+  }
+
+  function ytSetQuality(q, reload) {
+    if (q === quality) return;
+    quality = q;
+    if (reload) rebuild();
+  }
+
+  function ytControls(on) {
+    var v = on ? 1 : 0;
+    if (v === controlsOn) return;
+    controlsOn = v;
+    rebuild();
+  }
+
+  function sendRates() {
+    try { bridge('onRates', [JSON.stringify(player.getAvailablePlaybackRates() || [])]); } catch (e) {}
+  }
+
+  function tick() {
+    if (!player || !playerReady || !player.getCurrentTime) return;
+    try {
+      bridge('onTime', [player.getCurrentTime() || 0, player.getDuration() || 0,
+                        player.getPlaybackRate() || 1, player.getPlayerState()]);
+      if ((ticks++ % 8) === 0 && player.getPlaybackQuality) bridge('onQuality', [player.getPlaybackQuality() || '']);
+    } catch (e) {}
+  }
+
+  function ytPlay()  { if (player && playerReady) player.playVideo(); }
+  function ytPause() { if (player && playerReady) player.pauseVideo(); }
+  function ytSeek(sec) { if (player && playerReady) { player.seekTo(sec, true); tick(); } }
+  function ytRate(r) { if (player && playerReady) { player.setPlaybackRate(r); setTimeout(tick, 150); } }
+  function ytVolume(v) { if (player && playerReady) { try { player.setVolume(v); } catch (e) {} } }
+  function ytStop() { if (player && playerReady) player.stopVideo(); }
+</script>
+</body>
+</html>

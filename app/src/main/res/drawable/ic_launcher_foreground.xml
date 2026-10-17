@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- zaobljeni "ekran" -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#3A3A3A"
+        android:strokeWidth="3"
+        android:pathData="M34,34 h40 a8,8 0 0 1 8,8 v24 a8,8 0 0 1 -8,8 h-40 a8,8 0 0 1 -8,-8 v-24 a8,8 0 0 1 8,-8 z" />
+    <!-- napredak -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M34,74 h22" />
+    <!-- play -->
+    <path
+        android:fillColor="#F5F5F5"
+        android:pathData="M48,44 L48,62 L63,53 Z" />
+</vector>

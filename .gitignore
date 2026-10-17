@@ -1,0 +1,30 @@
+# Gradle / Kotlin build output
+.gradle/
+.kotlin/
+build/
+/captures
+.externalNativeBuild
+.cxx
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Local machine config (SDK path)
+local.properties
+
+# Built apps – publish goes to GitHub Releases
+*.apk
+*.aab
+*.dm
+app/release/
+app/debug/
+
+# Signing keys
+*.jks
+*.keystore
+keystore.properties
+
+# OS files
+.DS_Store
+Thumbs.db
