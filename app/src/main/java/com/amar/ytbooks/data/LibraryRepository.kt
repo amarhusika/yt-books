@@ -235,6 +235,28 @@ class LibraryRepository(private val context: Context) {
         )
     }
 
+    /**
+     * Makes [id] the video you are on: all videos before it count as heard (finished),
+     * all videos after it as not heard yet (back to 0). The video itself keeps its position.
+     */
+    fun setCurrent(id: String) {
+        val now = System.currentTimeMillis()
+        _playlists.update { list ->
+            list.map { p ->
+                val idx = p.videos.indexOfFirst { it.id == id }
+                if (idx < 0) p
+                else p.copy(videos = p.videos.mapIndexed { i, v ->
+                    when {
+                        i < idx -> v.copy(finished = true, positionMs = v.durationMs)
+                        i > idx -> v.copy(finished = false, positionMs = 0L)
+                        else -> v.copy(lastPlayedAt = now)
+                    }
+                })
+            }
+        }
+        persist()
+    }
+
     fun resetProgress(id: String) = updateVideo(id) { it.copy(positionMs = 0L, finished = false) }
 
     fun resetPlaylist(key: String) {

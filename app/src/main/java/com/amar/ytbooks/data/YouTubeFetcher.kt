@@ -91,7 +91,7 @@ object YouTubeFetcher {
 
         // Remaining pages (100 videos each)
         var pages = 0
-        while (token != null && pages < 100) {
+        while (token != null && pages < 500) {
             pages++
             val body = JSONObject().apply {
                 put("context", JSONObject().apply {
@@ -110,7 +110,11 @@ object YouTubeFetcher {
             val resp = try {
                 JSONObject(post(url, body.toString(), clientVersion, visitorData))
             } catch (e: Exception) {
-                break // keep what we have
+                try {
+                    JSONObject(post("https://www.youtube.com/youtubei/v1/browse?prettyPrint=false", body.toString(), clientVersion, visitorData))
+                } catch (e2: Exception) {
+                    break // keep what we have
+                }
             }
             val before = videos.size
             token = collect(resp, videos)
@@ -149,8 +153,18 @@ object YouTubeFetcher {
 
     /** Adds every playable video found anywhere in [root]; returns the next continuation token. */
     private fun collect(root: Any, out: LinkedHashMap<String, FetchedVideo>): String? {
-        var token: String? = null
+        // The page can hold several continuation tokens (e.g. one for the video list, one for other
+        // sections). The right one is the continuation item that sits in the SAME list as the videos.
+        var listToken: String? = null
+        var anyToken: String? = null
         val lockups = mutableListOf<JSONObject>()
+
+        fun tokenOf(o: JSONObject): String? =
+            (o.optJSONObject("continuationItemViewModel") ?: o.optJSONObject("continuationItemRenderer"))
+                ?.let { findContinuationToken(it) }
+
+        fun isVideo(o: JSONObject): Boolean =
+            o.has("playlistVideoRenderer") || o.optJSONObject("lockupViewModel")?.optString("contentType") == "LOCKUP_CONTENT_TYPE_VIDEO"
 
         fun walk(node: Any?, depth: Int) {
             if (depth > 60 || node == null) return
@@ -158,12 +172,7 @@ object YouTubeFetcher {
                 is JSONObject -> {
                     node.optJSONObject("playlistVideoRenderer")?.let { addRenderer(it, out) }
                     node.optJSONObject("lockupViewModel")?.let { lockups += it }
-                    node.optJSONObject("continuationItemRenderer")?.let { c ->
-                        val t = c.optJSONObject("continuationEndpoint")
-                            ?.optJSONObject("continuationCommand")
-                            ?.optString("token")
-                        if (!t.isNullOrBlank()) token = t
-                    }
+                    tokenOf(node)?.let { if (anyToken == null) anyToken = it }
                     val keys = node.keys()
                     while (keys.hasNext()) {
                         val k = keys.next()
@@ -171,14 +180,39 @@ object YouTubeFetcher {
                         walk(node.opt(k), depth + 1)
                     }
                 }
-                is JSONArray -> for (i in 0 until node.length()) walk(node.opt(i), depth + 1)
+                is JSONArray -> {
+                    var hasVideos = false
+                    var tok: String? = null
+                    for (i in 0 until node.length()) {
+                        val o = node.optJSONObject(i) ?: continue
+                        if (isVideo(o)) hasVideos = true
+                        tokenOf(o)?.let { tok = it }
+                    }
+                    if (hasVideos && tok != null && listToken == null) listToken = tok
+                    for (i in 0 until node.length()) walk(node.opt(i), depth + 1)
+                }
             }
         }
         walk(root, 0)
 
-        // Newer page layout fallback
-        if (out.isEmpty()) lockups.forEach { addLockup(it, out) }
-        return token
+        // Newer page layout (2025+): videos come as lockupViewModel – on every page, not only the first
+        lockups.forEach { addLockup(it, out) }
+        return listToken ?: anyToken
+    }
+
+    /** First `continuationCommand.token` found anywhere below [node]. */
+    private fun findContinuationToken(node: Any?, depth: Int = 0): String? {
+        if (node == null || depth > 12) return null
+        when (node) {
+            is JSONObject -> {
+                node.optJSONObject("continuationCommand")?.optString("token")
+                    ?.takeIf { it.isNotBlank() }?.let { return it }
+                val ks = node.keys()
+                while (ks.hasNext()) findContinuationToken(node.opt(ks.next()), depth + 1)?.let { return it }
+            }
+            is JSONArray -> for (i in 0 until node.length()) findContinuationToken(node.opt(i), depth + 1)?.let { return it }
+        }
+        return null
     }
 
     private fun addRenderer(r: JSONObject, out: LinkedHashMap<String, FetchedVideo>) {
@@ -219,7 +253,12 @@ object YouTubeFetcher {
             }
         }
         findClock(l.optJSONObject("contentImage"), 0)
-        out[id] = FetchedVideo(id, title, "", dur)
+        val channel = meta?.optJSONObject("metadata")
+            ?.optJSONObject("contentMetadataViewModel")
+            ?.optJSONArray("metadataRows")?.optJSONObject(0)
+            ?.optJSONArray("metadataParts")?.optJSONObject(0)
+            ?.optJSONObject("text")?.optString("content").orEmpty()
+        out[id] = FetchedVideo(id, title, channel, dur)
     }
 
     private fun playlistTitle(data: JSONObject): String? {

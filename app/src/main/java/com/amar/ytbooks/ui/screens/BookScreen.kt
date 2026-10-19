@@ -260,7 +260,6 @@ fun BookScreen(
                 }
 
                 itemsIndexed(playlist.videos, key = { _, v -> v.id }) { i, v ->
-                    var itemMenu by remember { mutableStateOf(false) }
                     VideoRow(
                         index = i + 1,
                         video = v,
@@ -269,39 +268,6 @@ fun BookScreen(
                         onClick = {
                             if (nowVideo?.id == v.id) actions.onOpenPlayer() else actions.onPlayVideo(v)
                         },
-                        trailing = {
-                            Box {
-                                IconButton(onClick = { itemMenu = true }) {
-                                    Icon(Icons.Rounded.MoreVert, "Video options", tint = cs.onSurfaceVariant)
-                                }
-                                DropdownMenu(expanded = itemMenu, onDismissRequest = { itemMenu = false }) {
-                                    DropdownMenuItem(
-                                        text = { Text(if (v.finished) "Mark as unwatched" else "Mark as watched") },
-                                        leadingIcon = { Icon(Icons.Rounded.CheckCircle, null) },
-                                        onClick = {
-                                            itemMenu = false
-                                            actions.onMarkFinished(v, !v.finished)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Start from the beginning") },
-                                        leadingIcon = { Icon(Icons.Rounded.Replay, null) },
-                                        onClick = {
-                                            itemMenu = false
-                                            actions.onResetVideo(v)
-                                        }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Open in YouTube") },
-                                        leadingIcon = { Icon(Icons.AutoMirrored.Rounded.OpenInNew, null) },
-                                        onClick = {
-                                            itemMenu = false
-                                            actions.onOpenInYouTube(v.watchUrl + "&t=${v.positionMs / 1000}s")
-                                        }
-                                    )
-                                }
-                            }
-                        }
                     )
                 }
             }

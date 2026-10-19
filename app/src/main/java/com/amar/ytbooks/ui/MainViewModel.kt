@@ -167,13 +167,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             States.PAUSED -> {
-                if (old == States.PLAYING || old == States.BUFFERING) {
+                if (started && (old == States.PLAYING || old == States.BUFFERING)) {
                     pausedAtWall = System.currentTimeMillis()
                     saveCurrent()
                 }
             }
 
             States.ENDED -> {
+                // Only a video that really played can end. Right after switching to the next video
+                // the player may still report a late "ended" from the previous one – ignore it,
+                // otherwise the new video would be skipped (03 → 05).
+                if (!started) return
+                started = false
                 wantPlay = false
                 pausedAtWall = 0L
                 Graph.library.markFinished(id, true)
@@ -201,20 +206,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return (v.positionMs - rewind).coerceAtLeast(0L)
     }
 
+    /** Going through the playlist in order: the next video always starts from the beginning. */
     private fun playNext(finishedId: String) {
         val next = Graph.library.nextInPlaylist(finishedId) ?: return
         val speed = yt.state.value.speed
         Graph.library.setSpeed(next.id, speed)
-        if (next.finished) Graph.library.resetProgress(next.id)
-        load(Graph.library.video(next.id) ?: next, play = true, speed = speed)
+        Graph.library.resetProgress(next.id)
+        load(Graph.library.video(next.id) ?: next, play = true, speed = speed, fromStart = true)
     }
 
-    private fun load(v: Video, play: Boolean, speed: Float = v.speed) {
+    private fun load(v: Video, play: Boolean, speed: Float = v.speed, fromStart: Boolean = false) {
         currentId = v.id
         started = false
         pausedAtWall = 0L
         wantPlay = play
-        val start = if (v.finished) 0L else startPositionFor(v)
+        // The playlist's progress follows the video you are on: everything before it counts as
+        // heard, everything after it as not heard yet.
+        Graph.library.setCurrent(v.id)
+        val start = if (fromStart || v.finished) 0L else startPositionFor(v)
         yt.load(v.videoId, start, play, speed)
         refresh()
     }
@@ -308,8 +317,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun playNextNow() {
         val id = currentId ?: return
-        val next = Graph.library.nextInPlaylist(id) ?: return
-        open(next)
+        saveCurrent()
+        playNext(id)
     }
 
     fun stopIfCurrent(id: String) {
