@@ -37,15 +37,16 @@ YT Books is built around **knowledge and focus**:
 - **Add by link:** paste a playlist link, or share it straight from the YouTube app (*Share → YT Books*). A single video link works too.
 - **Every playlist is a book,** with a cover, video count, total length and progress.
 - **Remembers your position** in every video, per playlist.
+- **Progress follows where you are:** jump to video 15 and 1–14 count as heard; go back to 02 and that is where you are again.
 - **Continue where you left off:** a card on the home screen takes you straight back.
 - **Smart rewind:** after a pause it goes back 5 s (short pause) or 10 s (longer pause), so you don't lose the thread.
-- **Autoplay next:** when a video ends, the next one *from the same playlist* starts. Never a recommendation.
+- **Autoplay next:** when a video ends, the next one *from the same playlist* starts from the beginning. Never a recommendation.
 - **Playback speed** from 0.25× to 2× (what YouTube's player allows), remembered per video.
 - **Skip** ±10 s and ±1 min, and double-tap left or right on the video to skip ±10 s.
 - **Sleep timer** with a gentle fade-out.
 - **Video quality:** Auto by default, or choose 1080p–144p (⋮ → *Video quality*).
 - **Check for new videos:** pulls new uploads from the playlist and keeps your progress.
-- **Mark as watched / start over** for a single video or a whole book.
+- **Start over** for a whole book.
 - **Remove a book:** long-press it in the library, or use the trash icon (asks for confirmation first).
 - **Light and dark theme** that follows the system. Black, gray, white and whitesmoke palette.
 - **Fullscreen landscape mode** with fade-away controls.
@@ -78,7 +79,7 @@ YT Books is built around **knowledge and focus**:
 | **UI** | Kotlin + Jetpack Compose (Material 3), single activity, no navigation library. Screens: Library → Book (playlist) → Player. Same design system as BookPlayer. |
 | **Player** | The **official YouTube IFrame Player API** inside one long-lived `WebView`. A small host page (`app/src/main/assets/ytplayer.html`) is loaded with `loadDataWithBaseURL("https://<applicationId>/")`, so YouTube gets a proper origin and referrer. Kotlin sends commands (`load`, `play`, `pause`, `seekTo`, `setPlaybackRate`) through `evaluateJavascript`, and the page reports state and time back through a `@JavascriptInterface` bridge. |
 | **Persistent player** | The WebView sits behind all screens. On the player screen it is moved into the video area, so playback continues while you browse the library and there is no reload between screens. |
-| **Playlist import** | `YouTubeFetcher` reads the public playlist page, parses the embedded `ytInitialData` JSON (titles, video IDs, durations), and follows continuation pages to get the full list (not just the first 100). Single videos use YouTube's public oEmbed endpoint. No API key and no login. |
+| **Playlist import** | `YouTubeFetcher` reads the public playlist page, parses the embedded `ytInitialData` JSON (titles, video IDs, durations), and follows continuation pages to get the full list (no 100-video limit; supports YouTube's current `lockupViewModel` layout). Single videos use YouTube's public oEmbed endpoint. No API key and no login. |
 | **Thumbnails** | Downloaded from `i.ytimg.com`, the 4:3 bars cropped to 16:9, cached on disk and in memory. |
 | **Storage** | `library.json` in the app's private storage (playlists, per-video position, speed, finished flag). Atomic writes. Settings (quality) are in SharedPreferences. Nothing leaves the device. |
 | **Playback logic** | `MainViewModel` handles position saving, smart rewind after pauses, per-video speed carried to the next video, autoplay of the next playlist item, and the sleep timer (volume fade, then pause). |
